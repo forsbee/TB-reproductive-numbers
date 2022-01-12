@@ -1,0 +1,401 @@
+---
+title: "Reproductive Number of TB in the US - Finals Results Plots (For Main Paper)"
+author: "Kristina Yamkovoy"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_float: true
+editor_options:
+  chunk_output_type: console
+---
+
+Note: these results are for the main paper. This file does not contain supplement plots.
+
+```{r, echo = FALSE, message = FALSE}
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(readxl)
+library(openxlsx)
+
+output_folder = '../output_from_cdc/output_23nov20/output/'
+```
+
+# Country-level estimates
+
+## Overall US
+
+### Line plot with and without importation
+```{r}
+us = read.csv('../output_from_cdc/output_10jul20/output/overall_us.csv', stringsAsFactors = FALSE)
+us$date = as.Date(paste(us$date, '-01', sep=''))
+
+us_import = read.csv('../output_from_cdc/output_10jul20/output/overall_us_import.csv', stringsAsFactors = FALSE)
+us_import$date = as.Date(paste(us_import$date, '-01', sep=''))
+
+us$import = 'no'
+us_import$import = 'yes'
+
+us_2 = rbind(us, us_import)
+
+us_2$import = factor(us_2$import, levels = c('yes','no'))
+
+# note: cut off first year and last two years
+ggplot(us_2, aes(date, rts, color = import)) +
+  geom_line(size = 1.1) +
+  scale_y_continuous(limits = c(0.75, 1.5), expand = c(0,0)) +
+  scale_x_date(limits = c(as.Date('2011-01-01'), as.Date('2016-01-01')), expand = c(0, 0), 
+               date_breaks = '1 year', date_labels = "%Y") +
+  #ggtitle('Reproductive Number of TB in United States') +
+  xlab('Year') + ylab(expression('R'[t])) +
+  geom_ribbon(aes(ymin = lower, ymax = upper, fill = import), alpha = 0.3) +
+  scale_fill_manual(values = c('grey20', 'grey60'), name = 'Incorporating time since \narrival to the U.S.?',
+                    labels = c('Yes', 'No')) +
+  scale_color_manual(values = c('grey20', 'grey60'), name = 'Incorporating time since \narrival to the U.S.?',
+                     labels = c('Yes', 'No'))+
+  #scale_fill_grey(name = 'Importation', labels = c('No', 'Yes')) +
+  #scale_color_grey(name = 'Importation', labels = c('No', 'Yes')) +
+  #scale_fill_brewer(name = 'Importation', labels = c('No', 'Yes'), palette = "Set1") +
+  #scale_color_brewer(name = 'Importation', labels = c('No', 'Yes'), palette = "Set1") +
+  geom_hline(yintercept = 1, linetype = 'dashed') +
+  theme_bw()
+```
+
+Note: do not include boxplots for overall US - can mention all time average in text with and without incorporating importation.
+
+## Origin of birth
+```{r}
+us = read.csv('../output_from_cdc/output_04dec20/output/overall_us_usborn_import_ci_all.csv', stringsAsFactors = FALSE)
+us = us[us$usborn != 'UNK', ]
+
+ggplot(us, aes(x = usborn, group = usborn, fill = usborn)) +
+  geom_boxplot(aes(ymin = min, lower = q25, middle = rt_est, upper = q75, ymax = max), stat = "identity") + 
+  xlab('Origin of Birth') + ylab(expression('R'[t])) +
+  scale_x_discrete(labels = c('Foreign Born', 'US Born')) +
+  scale_fill_manual(values = c('grey50', 'grey70')) +
+  #ggtitle('Origin of Birth') +
+  geom_hline(yintercept = 1, linetype = 'dashed') +
+  theme_bw() +
+  theme(panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "none")
+```
+
+
+## Age group {.tabset}
+
+### No interaction
+```{r}
+us = read.csv(paste(output_folder, 'overall_us_age_import_ci_all.csv', sep = ''), stringsAsFactors = FALSE)
+us = us[us$age != 'UNK', ]
+
+ggplot(us, aes(x = age, y = rt_est)) +
+  geom_point(position = position_dodge(width=0.5), size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.4, position = position_dodge(width=0.5)) +
+  xlab('Age (years)') + ylab(expression('R'[t])) +
+  #ggtitle('Age - No Interaction') +
+  scale_x_discrete(labels = c('0-4', '5-14', '15-24', '25-44', '45-64', '65+')) +
+  geom_hline(yintercept = 1, linetype = 'dashed') +
+  theme_bw()
+
+```
+
+
+### Interaction (POLYMOD)
+```{r}
+us = read.csv(paste(output_folder, 'overall_us_age_import_polymod_ci_all.csv', sep = ''), stringsAsFactors = FALSE)
+us = us[us$age != 'UNK', ]
+
+ggplot(us, aes(x = age, y = rt_est)) +
+  geom_point(position = position_dodge(width=0.5), size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.4, position = position_dodge(width=0.5)) +
+  xlab('Age (years)') + ylab(expression('R'[t])) +
+  #ggtitle('Age - Interaction (POLYMOD)') +
+  scale_x_discrete(labels = c('0-4', '5-14', '15-24', '25-44', '45-64', '65+')) +
+  geom_hline(yintercept = 1, linetype = 'dashed') +
+  theme_bw()
+```
+
+
+## US born with age {.tabset}
+
+### No interaction
+```{r}
+usborn = read.csv(paste(output_folder, 'overall_us_age_import_usborn_ci_all.csv', sep = ''), stringsAsFactors = FALSE)
+usborn = usborn[usborn$age != 'UNK', ]
+usborn$oob = 'US Born'
+
+forborn = read.csv(paste(output_folder, 'overall_us_age_import_notusborn_ci_all.csv', sep = ''),
+                   stringsAsFactors = FALSE)
+forborn = forborn[forborn$age != 'UNK', ]
+forborn$oob = 'Foreign Born'
+
+us_oob = rbind(usborn, forborn)
+
+
+ggplot(us_oob, aes(x = age, y = rt_est, group = oob, shape = oob)) +
+  geom_point(position = position_dodge(width=0.5), size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.4, position = position_dodge(width=0.5)) +
+  xlab('Age (years)') + ylab(expression('R'[t])) +
+  #ggtitle('Age and Origin of Birth (Ver 2) - No Interaction') +
+  #scale_shape_manual(name = 'Origin of Birth', values = c(8,4)) +
+  scale_x_discrete(labels = c('0-4', '5-14', '15-24', '25-44', '45-64', '65+')) +
+  geom_hline(yintercept = 1, linetype = 'dashed') +
+  theme_bw()
+
+```
+
+
+### Interaction (POLYMOD)
+```{r}
+usborn = read.csv(paste(output_folder, 'overall_us_age_import_usborn_polymod_ci_all.csv', sep = ''),
+                  stringsAsFactors = FALSE)
+usborn = usborn[usborn$age != 'UNK', ]
+usborn$oob = 'US Born'
+
+forborn = read.csv(paste(output_folder, 'overall_us_age_import_notusborn_matrix_ci_all.csv', sep = ''),
+                   stringsAsFactors = FALSE)
+forborn = forborn[forborn$age != 'UNK', ]
+forborn$oob = 'Foreign Born'
+
+us_oob = rbind(usborn, forborn)
+
+
+ggplot(us_oob, aes(x = age, y = rt_est, group = oob, shape = oob)) +
+  geom_point(position = position_dodge(width=0.5), size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.4, position = position_dodge(width=0.5)) +
+  xlab('Age (years)') + ylab(expression('R'[t])) +
+  #ggtitle('Age and Origin of Birth (Ver 2) - Interaction (POLYMOD)') +
+  scale_shape_manual(name = 'Origin of Birth', values = c(8,4)) +
+  scale_x_discrete(labels = c('0-4', '5-14', '15-24', '25-44', '45-64', '65+')) +
+  geom_hline(yintercept = 1, linetype = 'dashed') +
+  theme_bw()
+```
+
+
+# Region-level estimates
+
+## All {.tabset}
+
+### Heatmap
+```{r}
+library(usmap)
+
+# states in each region
+reg_1 = c('CT', 'ME', 'MA', 'NH', 'RI', 'VT')
+reg_10 = c('ID', 'OR', 'WA', 'AK')
+reg_2 = c('NJ', 'NY')
+reg_3 = c('DE', 'MD', 'PA', 'VA', 'WV')
+reg_4 = c('AL', 'FL', 'GA', 'KY', 'MS', 'NC', 'SC', 'TN')
+reg_5 = c('IL', 'IN', 'MI', 'MN', 'OH', 'WI')
+reg_6 = c('AR', 'LA', 'NM', 'OK', 'TX')
+reg_7 = c('IA', 'KS', 'MO', 'NE')
+reg_8 = c('CO', 'MT', 'ND', 'SD', 'UT', 'WY')
+reg_9 = c('AZ', 'CA', 'NV', 'HI')
+
+reg_all = read.csv(paste(output_folder, 'region_import_ci_all.csv', sep = ''), stringsAsFactors = FALSE)
+reg_all$num_state = c(6, 4, 2, 5, 8, 6, 5, 4, 6, 4)
+
+reg_repeat = reg_all %>%
+  group_by(region) %>%
+  slice(rep(1:n(), each = num_state))
+
+reg_repeat$state = c('CT', 'ME', 'MA', 'NH', 'RI', 'VT', 'ID', 'OR', 'WA', 'AK', 'NJ', 'NY',
+                     'DE', 'MD', 'PA', 'VA', 'WV', 'AL', 'FL', 'GA', 'KY', 'MS', 'NC', 'SC', 'TN',
+                     'IL', 'IN', 'MI', 'MN', 'OH', 'WI', 'AR', 'LA', 'NM', 'OK', 'TX',
+                     'IA', 'KS', 'MO', 'NE', 'CO', 'MT', 'ND', 'SD', 'UT', 'WY', 'AZ', 'CA', 'NV', 'HI')
+
+
+plot_usmap(data = reg_repeat, values = "rt_est") +
+  scale_fill_gradient(name = expression('R'[t]), high = "#132B43", low = "#56B1F7") +
+  theme(legend.position = "right")
+
+```
+
+### Boxplots
+```{r}
+us = read.csv(paste(output_folder, 'region_import_ci_all.csv', sep = ''), stringsAsFactors = FALSE)
+
+ggplot(us, aes(x = region, group = region, fill = region)) +
+  geom_boxplot(aes(ymin = min, lower = q25, middle = rt_est, upper = q75, ymax = max), stat = "identity") + 
+  xlab('Region') + ylab(expression('R'[t])) +
+  #ggtitle('Region') +
+  scale_fill_manual(values = rep('grey80', 10)) +
+  scale_x_discrete(name = 'HHS Region', labels = 1:10) +
+  geom_hline(yintercept = 1, linetype = 'dashed') +
+  theme_bw() +
+  theme(panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        legend.position = "none")
+```
+
+
+## Origin of birth and region {.tabset}
+
+### Heatmaps
+
+#### US Born
+```{r}
+reg_us = read.csv(paste(output_folder, 'region_usborn_import_ci_all.csv', sep = ''), stringsAsFactors = FALSE)
+reg_us$num_state = c(6, 4, 2, 5, 8, 6, 5, 4, 6, 4)
+
+reg_repeat_us = reg_us %>%
+  group_by(region) %>%
+  slice(rep(1:n(), each = num_state))
+
+reg_repeat_us$state = c('CT', 'ME', 'MA', 'NH', 'RI', 'VT', 'ID', 'OR', 'WA', 'AK', 'NJ', 'NY',
+                     'DE', 'MD', 'PA', 'VA', 'WV', 'AL', 'FL', 'GA', 'KY', 'MS', 'NC', 'SC', 'TN',
+                     'IL', 'IN', 'MI', 'MN', 'OH', 'WI', 'AR', 'LA', 'NM', 'OK', 'TX',
+                     'IA', 'KS', 'MO', 'NE', 'CO', 'MT', 'ND', 'SD', 'UT', 'WY', 'AZ', 'CA', 'NV', 'HI')
+
+
+plot_usmap(data = reg_repeat_us, values = "rt_est") +
+  scale_fill_gradient(name = expression('R'[t]), high = "#132B43", low = "#56B1F7") +
+  theme(legend.position = "right")
+
+```
+
+#### Foreign Born
+```{r}
+reg_for = read.csv(paste(output_folder, 'region_notusborn_import_ci_all.csv', sep = ''), stringsAsFactors = FALSE)
+reg_for$num_state = c(6, 4, 2, 5, 8, 6, 5, 4, 6, 4)
+
+reg_repeat_for = reg_for %>%
+  group_by(region) %>%
+  slice(rep(1:n(), each = num_state))
+
+reg_repeat_for$state = c('CT', 'ME', 'MA', 'NH', 'RI', 'VT', 'ID', 'OR', 'WA', 'AK', 'NJ', 'NY',
+                     'DE', 'MD', 'PA', 'VA', 'WV', 'AL', 'FL', 'GA', 'KY', 'MS', 'NC', 'SC', 'TN',
+                     'IL', 'IN', 'MI', 'MN', 'OH', 'WI', 'AR', 'LA', 'NM', 'OK', 'TX',
+                     'IA', 'KS', 'MO', 'NE', 'CO', 'MT', 'ND', 'SD', 'UT', 'WY', 'AZ', 'CA', 'NV', 'HI')
+
+
+plot_usmap(data = reg_repeat_for, values = "rt_est") +
+  scale_fill_gradient(name = expression('R'[t]), high = "#132B43", low = "#56B1F7") +
+  theme(legend.position = "right")
+
+```
+
+
+### Boxplots
+```{r}
+usborn = read.csv(paste(output_folder, 'region_usborn_import_ci_all.csv', sep = ''),
+                  stringsAsFactors = FALSE)
+usborn$oob = 'US Born'
+
+forborn = read.csv(paste(output_folder, 'region_notusborn_import_ci_all.csv', sep = ''),
+                   stringsAsFactors = FALSE)
+forborn$oob = 'Non-US Born'
+
+us_oob = rbind(usborn, forborn)
+
+us_oob$oob = factor(us_oob$oob, levels = c('US Born', 'Non-US Born'))
+us_oob$region = factor(us_oob$region, levels = c('reg_1', 'reg_2', 'reg_3', 'reg_4', 'reg_5',
+                                                 'reg_6', 'reg_7', 'reg_8', 'reg_9', 'reg_10'),
+                                      labels = seq(1,10))
+
+ggplot(us_oob, aes(x = region, group = interaction(region, oob), fill = oob)) +
+  geom_boxplot(aes(ymin = min, lower = q25, middle = rt_est, upper = q75, ymax = max), stat = "identity") + 
+  xlab('HHS Region') + ylab(expression('R'[t])) +
+  #ggtitle('Region and Origin of Birth (Ver 1)') +
+  scale_fill_manual(name = "Origin of Birth", values = c('grey60', 'grey95')) +
+  #scale_x_discrete(labels = c(1, 10, 2:9)) +
+  geom_hline(yintercept = 1, linetype = 'dashed') +
+  theme_bw() 
+  # theme(panel.grid.minor.x = element_blank(),
+  #       panel.grid.major.x = element_blank())
+
+
+ggplot(us_oob, aes(x = region, y = rt_est, group = oob, shape = oob)) +
+  geom_point(position = position_dodge(width=0), size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.4, position = position_dodge(width=0)) +
+  xlab('HHS Region') + ylab(expression('R'[t])) +
+  #ggtitle('Region and Origin of Birth (Ver 2)') +
+  scale_shape_manual(name = 'Origin of Birth', values = c(15,2), labels = c('U.S.-born', 'Non-U.S.-born')) +
+  #scale_x_discrete(labels = c(1, 10, 2:9)) +
+  geom_hline(yintercept = 1, linetype = 'dashed') +
+  theme_bw()
+```
+
+
+# HHS Regions
+```{r}
+reg_repeat$reg_factor = factor(reg_repeat$region, levels = c('reg_1', 'reg_2', 'reg_3', 'reg_4', 'reg_5',
+                                                             'reg_6', 'reg_7', 'reg_8', 'reg_9', 'reg_10'),
+                               labels = 1:10)
+
+
+plot_usmap(data = reg_repeat, values = "reg_factor") +
+  scale_fill_manual(name = "Region", values = c('grey40', 'grey60', 'grey90', 'grey70', 'grey30',
+                                                'grey80', 'grey10', 'grey95', 'grey50', 'grey20')) +
+  theme(legend.position = "right")
+
+plot_usmap(data = reg_repeat, values = "reg_factor") +
+  # scale_fill_manual(name = "Region", values = c('lightseagreen', 'lightsalmon', 'mediumorchid', 'royalblue',
+  #                                               'springgreen',
+  #                                               'red', 'grey70', 'grey80', 'grey90', 'grey100')) +
+  scale_fill_brewer(name = "Region", palette = "Set3", na.translate = F) +
+  theme(legend.position = "right")
+
+```
+
+
+# HHS Regions - Individual
+```{r}
+w = 1920/2
+h = 1080/2
+
+png('reg_1.png', width = w, height = h)
+plot_usmap('states', include = c(reg_1, 'CA', 'TX'))
+dev.off()
+
+png('reg_2.png', width = w, height = h)
+plot_usmap('states', include = c(reg_2, 'CA', 'ME', 'TX'))
+dev.off()
+
+png('reg_3.png', width = w, height = h)
+plot_usmap('states', include = c(reg_3, 'CA', 'ME', 'TX'))
+dev.off()
+
+png('reg_4.png', width = w, height = h)
+plot_usmap('states', include = c(reg_4, 'CA', 'ME', 'TX'))
+dev.off()
+
+png('reg_5.png', width = w, height = h)
+plot_usmap('states', include = c(reg_5, 'CA', 'ME', 'TX'))
+dev.off()
+
+png('reg_6.png', width = w, height = h)
+plot_usmap('states', include = c(reg_6, 'CA', 'ME', 'TX'))
+dev.off()
+
+png('reg_7.png', width = w, height = h)
+plot_usmap('states', include = c(reg_7, 'CA', 'ME', 'TX'))
+dev.off()
+
+png('reg_8.png', width = w, height = h)
+plot_usmap('states', include = c(reg_8, 'CA', 'ME', 'TX'))
+dev.off()
+
+png('reg_9.png', width = w, height = h)
+plot_usmap('states', include = c(reg_9[1:3], 'ME', 'TX'))
+dev.off()
+
+png('reg_10.png', width = w, height = h)
+plot_usmap('states', include = c(reg_10[1:3], 'CA', 'ME', 'TX'))
+dev.off()
+
+png('reg_9_HI.png', width = w, height = h)
+plot_usmap('states', include = c(reg_9[4], 'CA', 'ME', 'TX'))
+dev.off()
+
+png('reg_10_AK.png', width = w, height = h)
+plot_usmap('states', include = c(reg_10[4], 'CA', 'ME', 'TX'))
+dev.off()
+```

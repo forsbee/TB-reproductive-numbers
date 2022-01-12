@@ -1,0 +1,284 @@
+---
+title: "Reproductive Number of TB in the US"
+author: "Kristina Yamkovoy"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_float: true
+editor_options:
+  chunk_output_type: console
+---
+
+```{r, echo = FALSE, message = FALSE}
+knitr::opts_chunk$set(fig.width = 6, fig.height = 4)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(readxl)
+library(openxlsx)
+library(gridExtra)
+library(ggpubr)
+
+output_folder = '../output_from_cdc/output_10jul20/output/'
+```
+
+
+# Yearly TB Cases in the US 2011-2018  {.tabset}
+
+## Total cases
+```{r}
+us = read_xlsx('../data/cdc/Summary data for Kristina 20200904.xlsx', sheet = 'Year-Total-USB')
+
+ggplot(us, aes(`Case year`, `Total cases`)) +
+  geom_line() +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0)) +
+  ggtitle('Total TB Cases in the US 2011-2018') +
+  xlab('Year') + ylab('Cases per year') +
+  theme_minimal()
+```
+
+## Total cases +
+```{r}
+us_i = read_xlsx('../data/cdc/Summary data for Kristina 20200904.xlsx', sheet = 'Year-Arrival')
+us_e = read_xlsx('../data/cdc/Summary data for Kristina 20200904.xlsx', sheet = 'Year-DisSite-Total')
+
+# ggplot(us, aes(`Case year`, `Total cases`)) +
+#   geom_bar(stat="identity") +
+#   geom_bar(stat="identity", data = us_i, aes(`Case year`, `<2 years`, color='red')) +
+#   geom_bar(data = us_e, aes(`Case year`, `EXTRAPULM ONLY`, color='blue')) +
+#   scale_y_continuous(expand = c(0,0)) +
+#   scale_x_continuous(expand = c(0,0)) +
+#   ggtitle('Total TB Cases in the US 2011-2018') +
+#   xlab('Year') + ylab('Cases per year') +
+#   theme_minimal()
+
+
+us_new = data.frame(us$`Case year`, us$`Total cases`, us_i$`<2 years`, us_e$`EXTRAPULM ONLY`)
+colnames(us_new) = c('year', 'total', 'import', 'extrapulmonary')
+us_new_long = gather(us_new, cat, cases, total:extrapulmonary)
+
+us_new_long$cat = factor(us_new_long$cat, levels = c('total', 'import', 'extrapulmonary'))
+
+us_all = ggplot(us_new_long, aes(year, cases, fill = cat)) +
+  geom_bar(stat="identity", position = "dodge") +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0), breaks = c(2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017)) +
+  # ggtitle('Cases of TB in the US 2011-2017') +
+  xlab('Year') + ylab('Cases') +
+  scale_fill_grey(name = 'Case type', labels = c('Total', 'Arrived in the U.S. within \nprevious 2 years', 'Extrapulmonary')) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(plot.margin = margin(1, 0, 0, 0.5, 'cm'))
+
+us_all
+```
+
+## Origin of birth
+```{r}
+us_oob = read_xlsx('../data/cdc/Summary data for Kristina 20200904.xlsx', sheet = 'Year-Total-USB')
+us_long_oob = gather(us_oob, cat, cases, `Non-US-born`:`US-born`)
+
+us_long_oob$cat = factor(us_long_oob$cat, levels = c('US-born', 'Non-US-born'))
+
+us_born = ggplot(us_long_oob, aes(`Case year`, cases, fill = cat)) +
+  geom_bar(stat='identity') +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0), breaks = c(2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017)) +
+  # ggtitle('Total TB Cases in the US 2010-2017') +
+  xlab('Year') + ylab('Cases') +
+  scale_fill_grey(name = 'Origin of birth', labels = c('U.S.-born', 'Non-U.S.-born')) +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(plot.margin = margin(1, 0, 0, 0.5, 'cm'))
+
+us_born
+```
+
+## Age
+```{r}
+us_age_dat = read.xlsx('../data/cdc/Summary data for Kristina 20200904.xlsx', sheet = 'Year-Age', startRow = 2)[,1:7]
+
+#us_long_age = gather(us_age_dat, cat, cases, `00–04y`:`65+y`)
+us_long_age = gather(us_age_dat, cat, cases, 2:7)
+
+us_age = ggplot(us_long_age, aes(Case.year, cases, fill = cat)) +
+  geom_bar(stat="identity") +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0), breaks = c(2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017)) +
+  #scale_x_date(expand = c(0, 0), date_breaks = '1 year', date_labels = "%Y") +
+  # ggtitle('TB Cases in the US by age') +
+  xlab('Year') + ylab('Cases') +
+  scale_fill_grey(name = 'Age (years)', labels = c('0-4', '5-14', '15-24', '25-44', '45-64', '65+')) +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(plot.margin = margin(1, 0, 0, 0.5, 'cm'))
+
+us_age
+```
+
+## Region
+```{r}
+us_reg = read.xlsx('../data/cdc/Summary data for Kristina 20200904.xlsx', sheet = 'Year-HHSRegion', startRow = 2)[,1:11]
+
+us_long_reg = gather(us_reg, cat, cases, `HHS-1`:`HHS-10`)
+us_long_reg$cases[us_long_reg$cases == '<5'] = NA
+us_long_reg$cases = as.numeric(us_long_reg$cases)
+
+us_region = ggplot(us_long_reg, aes(Case.year, cases, fill = cat)) +
+  geom_bar(stat="identity") +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0), breaks = c(2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017)) +
+  #scale_x_date(expand = c(0, 0), date_breaks = '1 year', date_labels = "%Y") +
+  # ggtitle('TB Cases in the US by region') +
+  xlab('Year') + ylab('Cases') +
+  scale_fill_grey(name = 'HHS region', labels = c('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')) +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(plot.margin = margin(1, 0, 0, 0.5, 'cm'))
+
+us_region
+```
+
+
+## Combine into multipanel plot
+```{r}
+ggarrange(us_all, us_born, us_age, us_region, labels = c('A)', 'B)', 'C)', 'D)'), font.label = list(size = 10))
+
+# 750 x 450 is good size
+```
+
+
+# Yearly cases, but with line plots
+```{r}
+us_all_2 = ggplot(us_new_long, aes(year, cases, color = cat)) +
+  geom_line(size = 1.25) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_continuous(expand = c(0,0)) +
+  # ggtitle('Cases of TB in the US 2011-2017') +
+  xlab('Year') + ylab('Cases') +
+  scale_color_discrete(name = 'Case type', labels = c('Total', 'Imported', 'Extrapulmonary')) +
+  theme_minimal()
+
+us_all_2
+
+
+us_born_2 = ggplot(us_long_oob, aes(`Case year`, cases, color = cat)) +
+  geom_line(size = 1.25) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,7000)) +
+  scale_x_continuous(expand = c(0,0)) +
+  # ggtitle('Total TB Cases in the US 2010-2017') +
+  xlab('Year') + ylab('Cases') +
+  scale_color_discrete(name = 'Origin of birth', labels = c('US born', 'Foreign born')) +
+  theme_minimal()
+
+us_born_2
+
+
+us_age_2 = ggplot(us_long_age, aes(Case.year, cases, color = cat)) +
+  geom_line(size = 1.25) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,7000)) +
+  scale_x_continuous(expand = c(0,0)) +
+  #scale_x_date(expand = c(0, 0), date_breaks = '1 year', date_labels = "%Y") +
+  # ggtitle('TB Cases in the US by age') +
+  xlab('Year') + ylab('Cases') +
+  scale_color_discrete(name = 'Age (years)', labels = c('0-4', '5-14', '15-24', '25-44', '45-64', '65+')) +
+  theme_minimal()
+
+us_age_2
+
+
+us_region_2 = ggplot(us_long_reg, aes(Case.year, cases, color = cat)) +
+  geom_line(size = 1.25) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,7000)) +
+  scale_x_continuous(expand = c(0,0)) +
+  #scale_x_date(expand = c(0, 0), date_breaks = '1 year', date_labels = "%Y") +
+  # ggtitle('TB Cases in the US by region') +
+  xlab('Year') + ylab('Cases') +
+  scale_color_discrete(name = 'HHS region', labels = c('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')) +
+  theme_minimal()
+
+us_region_2
+
+
+ggarrange(us_all_2, us_born_2, us_age_2, us_region_2, labels = c('a', 'b', 'c', 'd'))
+```
+
+
+
+
+
+# Monthly TB Cases in the US 2011-2018  {.tabset}
+
+## Total cases
+```{r}
+us = read_xlsx('../data/cdc/Summary data for Kristina 20200904.xlsx', sheet = 'By month, total')
+us$`Case month` = as.Date(paste(us$`Case month`, '-01', sep=''))
+
+
+ggplot(us, aes(`Case month`, `Total cases`)) +
+  geom_line() +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_date(expand = c(0, 0), date_breaks = '1 year', date_labels = "%Y") +
+  ggtitle('Total TB Cases in the US 2011-2018') +
+  xlab('Year') + ylab('Cases per month') +
+  theme_minimal()
+```
+
+## Origin of Birth
+```{r}
+us = read_xlsx('../data/cdc/Summary data for Kristina 20200904.xlsx', sheet = 'By month, OriginBirth')
+us$`Case month` = as.Date(paste(us$`Case month`, '-01', sep=''))
+
+us_long = gather(us, cat, cases, `Non-US-born`:`US-born`)
+
+ggplot(us_long, aes(`Case month`, cases, color = cat)) +
+  geom_line() +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_date(expand = c(0, 0), date_breaks = '1 year', date_labels = "%Y") +
+  ggtitle('TB Cases in the US by origin of birth') +
+  xlab('Year') + ylab('Cases per month') +
+  scale_color_discrete(name = 'Category', labels = c('Foreign born', 'US born')) +
+  theme_minimal()
+```
+
+## Age
+```{r}
+us = read_xlsx('../data/cdc/Summary data for Kristina 20200904.xlsx', sheet = 'By month, age')
+us$`Case month` = as.Date(paste(us$`Case month`, '-01', sep=''))
+
+us_long = gather(us, cat, cases, `00–04y`:`65+y`)
+
+ggplot(us_long, aes(`Case month`, cases, color = cat)) +
+  geom_line() +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_date(expand = c(0, 0), date_breaks = '1 year', date_labels = "%Y") +
+  ggtitle('TB Cases in the US by age') +
+  xlab('Year') + ylab('Cases per month') +
+  scale_color_discrete(name = 'Age (years)', labels = c('0-4', '5-14', '15-24', '25-44', '45-64', '65+')) +
+  theme_minimal()
+```
+
+## Region
+```{r}
+us = read_xlsx('../data/cdc/Summary data for Kristina 20200904.xlsx', sheet = 'By month, region')
+us$`Case month` = as.Date(paste(us$`Case month`, '-01', sep=''))
+
+us_long = gather(us, cat, cases, `HHS-1`:`HHS-10`)
+us_long$cases[us_long$cases == '<5'] = NA
+us_long$cases = as.numeric(us_long$cases)
+
+ggplot(us_long, aes(`Case month`, cases, color = cat)) +
+  geom_line() +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_date(expand = c(0, 0), date_breaks = '1 year', date_labels = "%Y") +
+  ggtitle('TB Cases in the US by region') +
+  xlab('Year') + ylab('Cases per month') +
+  scale_color_discrete(name = 'HHS region', labels = c('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')) +
+  theme_minimal()
+```
